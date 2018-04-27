@@ -1,10 +1,12 @@
-const socketCluster = require('socketcluster-client');
+const socketCluster = require('socketcluster-client')
 const config = require('../config/config')
-const Influx = require('influx');
+const Influx = require('influx')
 
 
 const influx = new Influx.InfluxDB({
     host: config.influx.host,
+    username: config.influx.username,
+    password: config.influx.password,
     database: 'ticks',
     schema: [
       {
@@ -20,45 +22,51 @@ const influx = new Influx.InfluxDB({
     ]
 })
 
+let pointsBatch = []
 
-function ingest(exchangesInfo) {
-    const socket = socketCluster.connect(config.coinigy.connectOptions);
+function saveTickerEvent(data) {
+    pointsBatch.push({
+        measurement: 'price_ticks',
+        tags: {
+            exchange: data['exchange'],
+            pair: data['label']
+        },
+        fields: {
+            price: data['price']
+        },
+        timestamp: new Date(data['timestamp'])
+    })
+
+    if (pointsBatch.length >= 100) {
+        console.log('Writing ', pointsBatch.length, ' points -- ', new Date())
+        influx.writePoints(pointsBatch)
+        pointsBatch = []
+    }
+}
+
+const socket = socketCluster.connect(config.coinigy.connectOptions)
+
+function ingest(exchanges) {
+
+    config.coinigy.channels.forEach((ch) => {
+        socket.subscribe(ch, {waitForAuth: true, batch: true}).watch(saveTickerEvent)
+    })
+
     socket.on('connect', (status) => {
-        socket.on('error', (err) => console.error(err));
+        socket.on('error', (err) => console.error(err))
         socket.emit("auth", config.coinigy.apiCredentials, (err, token) => {
             if (err) {
-                console.error(err);
+                console.error('ERROR WHILE AUTHENTICATING: ', err)
             } else if (token) {
-                for (var ex in exchangesInfo) {
-                    exchangesInfo[ex].forEach((pair) => consumeFromChannel(socket, ex, pair[0], pair[1]));
-                }
+                console.log('AUTHED SUCCESSFULLY!')
+                console.log('NUMBER OF CHANNELS:', config.coinigy.channels.length)
             } else {
                 console.error('Token not received after auth event!')
             }
-        });   
-    });
+        })
+    })
 }
 
-function consumeFromChannel(socket, exchange, currencyA, currencyB) {
-    socket.subscribe(`TRADE-${exchange}--${currencyA}--${currencyB}`).watch(saveTickerEvent);
-}
 
-function saveTickerEvent(data) {
-    //console.log(`${data['exchange']} ${data['label']} ${data['price']}`);
-    console.log(data);
-    influx.writePoints([
-        {
-            measurement: 'price_ticks',
-            tags: {
-                exchange: data['exchange'],
-                pair: data['label']
-            },
-            fields: {
-                price: data['price']
-            },
-            timestamp: new Date(data['timestamp'])
-        }
-    ]);
-}
 
 module.exports.ingest = ingest;
