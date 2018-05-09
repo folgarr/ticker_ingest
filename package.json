@@ -7,9 +7,16 @@
     "influx": "^5.0.7",
     "socketcluster-client": "^10.1.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-eslint": "^8.2.3",
+    "babel-preset-airbnb": "^2.4.0",
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-plugin-import": "^2.11.0"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node_modules/.bin/babel src -d assets/js"
   },
   "author": "Carlos Folgar",
   "license": "ISC"
