@@ -2,9 +2,11 @@
   "name": "ticker_ingest",
   "version": "1.0.0",
   "description": "",
-  "main": "ingest.js",
+  "main": "assets/js/cli.js",
   "dependencies": {
+    "commander": "^2.15.1",
     "influx": "^5.0.7",
+    "redis": "^2.8.0",
     "socketcluster-client": "^10.1.2"
   },
   "devDependencies": {
@@ -16,7 +18,10 @@
     "eslint-plugin-import": "^2.11.0"
   },
   "scripts": {
-    "build": "node_modules/.bin/babel src -d assets/js"
+    "build": "node_modules/.bin/babel src -d assets/js && chmod +x assets/js/cli.js"
+  },
+  "bin": {
+    "ticker-cli": "./assets/js/cli.js"
   },
   "author": "Carlos Folgar",
   "license": "ISC"

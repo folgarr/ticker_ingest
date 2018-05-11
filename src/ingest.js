@@ -45,24 +45,36 @@ function saveTickerEvent(data) {
 }
 
 
-export default function ingest() {
+export function ingest() {
+  console.log('Starting Coinigy Websocket -> InfluxDB ingestion process.')
   const socket = connect(config.coinigy.connectOptions)
   config.coinigy.channels.forEach((ch) => {
     socket.subscribe(ch, { waitForAuth: true, batch: true }).watch(saveTickerEvent)
   })
 
+  console.log('Connecting to Coinigy websocket...')
   socket.on('connect', (status) => {
-    console.log('STATUS: ', status)
+    console.log('Connection Status:\n', status)
     socket.on('error', err => console.error(err))
+    console.log('Attempting to auth to Coinigy...')
     socket.emit('auth', config.coinigy.apiCredentials, (err, token) => {
       if (err) {
-        console.error('ERROR WHILE AUTHENTICATING: ', err)
+        console.error('Error in authentication to coinigy:\n', err)
       } else if (token) {
-        console.log('AUTHED SUCCESSFULLY!')
-        console.log('NUMBER OF CHANNELS:', config.coinigy.channels.length)
+        console.log('Successful authentication coinigy!')
+        console.log('Number of channels to ingest from: ', config.coinigy.channels.length)
       } else {
         console.error('Token not received after auth event!')
       }
     })
   })
+}
+
+
+export function aggregate() {
+  // create redis connection
+  // for each channel
+  //    cache last price
+  //    for every agg-range, cache points
+  console.log('Starting caching of aggregation into redis...')
 }

@@ -1,7 +1,8 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports['default'] = ingest;
+exports.ingest = ingest;
+exports.aggregate = aggregate;
 
 var _socketclusterClient = require('socketcluster-client');
 
@@ -50,23 +51,34 @@ function saveTickerEvent(data) {
 }
 
 function ingest() {
+  console.log('Starting Coinigy Websocket -> InfluxDB ingestion process.');
   const socket = (0, _socketclusterClient.connect)(_config2['default'].coinigy.connectOptions);
   _config2['default'].coinigy.channels.forEach(ch => {
     socket.subscribe(ch, { waitForAuth: true, batch: true }).watch(saveTickerEvent);
   });
 
+  console.log('Connecting to Coinigy websocket...');
   socket.on('connect', status => {
-    console.log('STATUS: ', status);
+    console.log('Connection Status:\n', status);
     socket.on('error', err => console.error(err));
+    console.log('Attempting to auth to Coinigy...');
     socket.emit('auth', _config2['default'].coinigy.apiCredentials, (err, token) => {
       if (err) {
-        console.error('ERROR WHILE AUTHENTICATING: ', err);
+        console.error('Error in authentication to coinigy:\n', err);
       } else if (token) {
-        console.log('AUTHED SUCCESSFULLY!');
-        console.log('NUMBER OF CHANNELS:', _config2['default'].coinigy.channels.length);
+        console.log('Successful authentication coinigy!');
+        console.log('Number of channels to ingest from: ', _config2['default'].coinigy.channels.length);
       } else {
         console.error('Token not received after auth event!');
       }
     });
   });
+}
+
+function aggregate() {
+  // create redis connection
+  // for each channel
+  //    cache last price
+  //    for every agg-range, cache points
+  console.log('Starting caching of aggregation into redis...');
 }
