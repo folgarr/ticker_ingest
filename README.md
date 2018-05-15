@@ -1,8 +1,8 @@
-# CLI to ingest and/or aggregate crypto exchange ticker streams
+# Ingest/Aggregate crypto tickers
 
-## Getting started
+## Getting started with the CLI
 
-To install this package and build the executable CLI `ticker-cli`:
+Install this package and build the executable CLI `ticker-cli`:
 
 ```
 npm install
@@ -13,13 +13,17 @@ ticker-cli -h
 *Note that this was tested using Node version 8.11.1*
 ## Ingest into InfluxDB
 
-Collection is done by subscribing to channels on Coinigy's Websocket API.
+Collection is done by subscribing to channels on an exchange websocket API.
 When ticker data (price, exchange, pair, etc) is received from this websocket it is written into InfluxDB.
 
 To begin this process:
 
 ```
-ticker-cli ingest
+ticker-cli ingest gdax
+# or
+ticker-cli ingest bitfinex
+# or
+ticker-cli ingest gdax bitfinex
 ```
 
 
@@ -34,4 +38,4 @@ To begin this process:
 ticker-cli aggregate
 ```
 
-From then on, APIs can simply query redis to obtain up-to-date historical cryptocurrency data :+1: 
+Once the aggregations are in Redis, functions can simply query redis to serve up-to-date historical cryptocurrency data :+1: 

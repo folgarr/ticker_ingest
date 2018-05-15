@@ -4,7 +4,9 @@
   "description": "",
   "main": "assets/js/cli.js",
   "dependencies": {
+    "bitfinex-api-node": "^2.0.0-beta.1",
     "commander": "^2.15.1",
+    "gdax": "^0.7.0",
     "influx": "^5.0.7",
     "redis": "^2.8.0",
     "socketcluster-client": "^10.1.2"
@@ -18,7 +20,7 @@
     "eslint-plugin-import": "^2.11.0"
   },
   "scripts": {
-    "build": "node_modules/.bin/babel src -d assets/js && chmod +x assets/js/cli.js"
+    "build": "mkdir -p assets/js && node_modules/.bin/babel src -d assets/js && chmod +x assets/js/cli.js"
   },
   "bin": {
     "ticker-cli": "./assets/js/cli.js"

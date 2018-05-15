@@ -1,22 +1,29 @@
 import { connect } from 'socketcluster-client'
 import { InfluxDB, FieldType } from 'influx'
+import { WebsocketClient } from 'gdax'
+import BFX from 'bitfinex-api-node'
 import config from './config'
 
+
+const INFLUX_TICKER_MEASUREMENT = 'ticker'
+const POINT_BATCH_SIZE_LIMIT = 50
 
 const influx = new InfluxDB({
   host: config.influx.host,
   username: config.influx.username,
   password: config.influx.password,
-  database: 'ticks',
+  database: 'tickers',
   schema: [
     {
-      measurement: 'price_ticks',
+      measurement: INFLUX_TICKER_MEASUREMENT,
       fields: {
         price: FieldType.FLOAT,
+        size: FieldType.FLOAT,
       },
       tags: [
         'exchange',
         'pair',
+        'side',
       ],
     },
   ],
@@ -24,27 +31,102 @@ const influx = new InfluxDB({
 
 let pointsBatch = []
 
-function saveTickerEvent(data) {
+function saveTickerEvent(timestamp, price, size, side, exchange, pair) {
   pointsBatch.push({
-    measurement: 'price_ticks',
+    measurement: INFLUX_TICKER_MEASUREMENT,
     tags: {
-      exchange: data.exchange,
-      pair: data.label,
+      exchange,
+      pair,
+      side,
     },
     fields: {
-      price: data.price,
+      price,
+      size,
     },
-    timestamp: new Date(data.timestamp),
+    timestamp: new Date(timestamp),
   })
 
-  if (pointsBatch.length >= 100) {
+  if (pointsBatch.length >= POINT_BATCH_SIZE_LIMIT) {
     console.log('Writing ', pointsBatch.length, ' points -- ', new Date())
     influx.writePoints(pointsBatch)
     pointsBatch = []
   }
 }
 
+export function ingestBitfinex() {
+  console.log('Beginning ingestion of Bitfinex tickers via websocket API...')
+  const bfx = new BFX({
+    ws: {
+      autoReconnect: true,
+      seqAudit: true,
+      packetWDDelay: 10 * 1000,
+    },
+  })
 
+  const ws = bfx.ws(2)
+  ws.on('error', err => console.error('BITFINEX API ERROR:', err))
+  ws.on('open', () => {
+    config.ingestSources.bitfinex.channels.forEach((ch) => {
+      ws.subscribeTrades(ch)
+      ws.onTrades({ pair: ch }, (trades) => {
+        const [, timestamp, amount, price] = trades[0]
+        saveTickerEvent(
+          timestamp,
+          price,
+          Math.abs(amount),
+          amount < 0 ? 'sell' : 'buy',
+          'BITFINEX',
+          `${ch.substring(0, 3)}/${ch.substring(3, 6)}`,
+        )
+      })
+    })
+  })
+
+  ws.open()
+}
+
+export function ingestGdax() {
+  console.log('Beginning ingestion of GDAX tickers via websocket API...')
+  const gdaxClient = new WebsocketClient(
+    config.ingestSources.gdax.channels,
+    'wss://ws-feed.gdax.com',
+    null,
+    { channels: ['matches'] },
+  )
+  gdaxClient.on('message', (data) => {
+    if (data.type === 'match') {
+      saveTickerEvent(
+        data.time,
+        data.price,
+        data.size,
+        data.side,
+        'GDAX',
+        data.product_id.replace('-', '/'),
+      )
+    }
+  })
+
+  gdaxClient.on('error', (err) => {
+    console.error('GDAX websocket error:')
+    console.error(err)
+  })
+
+  gdaxClient.on('close', () => {
+    console.log('Websocket closed! Attempting to reconnect every 30 seconds.')
+    gdaxClient.connect()
+    const reconnectInterval = setInterval(() => {
+      if (gdaxClient.socket) {
+        console.log('Successfuly reconnected! -- ', new Date())
+        clearInterval(reconnectInterval)
+      } else {
+        console.log('Attempting to reconnect -- ', new Date())
+        gdaxClient.connect()
+      }
+    }, 30000)
+  })
+}
+
+// Unused for now until Coinigy increases channel limits...
 export function ingest() {
   console.log('Starting Coinigy Websocket -> InfluxDB ingestion process.')
   const socket = connect(config.coinigy.connectOptions)
@@ -70,11 +152,14 @@ export function ingest() {
   })
 }
 
-
 export function aggregate() {
-  // create redis connection
-  // for each channel
-  //    cache last price
-  //    for every agg-range, cache points
-  console.log('Starting caching of aggregation into redis...')
+  console.log('Starting aggregation caching into redis...')
+  const ch = config.coinigy.channels[0]
+  const [exc, currA, currB] = ch.slice(6).split('--')
+  const qStr = `SELECT LAST(price) FROM price_ticks WHERE exchange = '${exc}' AND pair = '${currA}/${currB}'`
+  influx.query(qStr).then((results) => {
+    // results.groupRows.map(ele => ele.rows).forEach(row => console.log(row))
+    console.log('GOT RESULTS!')
+    console.log(results.groupRows)
+  })
 }

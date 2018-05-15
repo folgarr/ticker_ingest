@@ -1,11 +1,28 @@
 #!/usr/bin/env node
 import cli from 'commander'
-import { ingest, aggregate } from './ingest'
+import config from './config'
+import { ingestGdax, ingestBitfinex, aggregate } from './ingest'
+
+const sources = Object.keys(config.ingestSources)
 
 cli
-  .command('ingest')
-  .description('Ingest tickers from websocket and save to InfluxDB.')
-  .action(() => ingest())
+  .command('ingest <sources...>')
+  .description(`Ingest ticker data into InfluxDB. Sources to choose from: ${sources}.`)
+  .action((chosenSources) => {
+    const invalids = chosenSources.filter(e => !sources.includes(e))
+    if (invalids.length > 0) {
+      console.error(`Invalid sources provided: ${invalids}. Available sources are: ${sources}.`)
+      process.exit(1)
+    }
+
+    if (chosenSources.includes('gdax')) {
+      ingestGdax()
+    }
+
+    if (chosenSources.includes('bitfinex')) {
+      ingestBitfinex()
+    }
+  })
 
 cli
   .command('aggregate')
