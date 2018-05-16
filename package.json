@@ -4,6 +4,7 @@
   "description": "",
   "main": "assets/js/cli.js",
   "dependencies": {
+    "binance-api-node": "^0.7.6",
     "bitfinex-api-node": "^2.0.0-beta.1",
     "commander": "^2.15.1",
     "gdax": "^0.7.0",
