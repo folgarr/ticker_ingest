@@ -1,12 +1,12 @@
 # Ingest/Aggregate crypto tickers
 
-## Getting started with the CLI
+## Installing the CLI
 
-Install this package and build the executable CLI `ticker-cli`:
+From the project directory:
 
 ```
-npm install
 npm run build
+npm install -g .
 ticker-cli -h
 ```
 
@@ -19,11 +19,10 @@ When ticker data (price, exchange, pair, etc) is received from this websocket it
 To begin this process:
 
 ```
-ticker-cli ingest gdax
-# or
-ticker-cli ingest bitfinex
-# or
-ticker-cli ingest gdax bitfinex
+# to only view the incoming websocket data
+ECHO_TICKERS=1 ticker-cli ingest {gdax,bitfinex,binance}
+# to actually save the data to InfluxDB
+ticker-cli ingest {gdax,bitfinex,binance}
 ```
 
 
