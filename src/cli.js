@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import cli from 'commander'
 import config from './config'
-import { ingestGdax, ingestBitfinex, aggregate } from './ingest'
+import { ingestBinance, ingestGdax, ingestBitfinex, aggregate } from './ingest'
 
 const sources = Object.keys(config.ingestSources)
 
 cli
   .command('ingest <sources...>')
-  .description(`Ingest ticker data into InfluxDB. Sources to choose from: ${sources}.`)
+  .description(`Ingest ticker data into InfluxDB. Sources to choose from: ${sources.join(', ')}.`)
   .action((chosenSources) => {
     const invalids = chosenSources.filter(e => !sources.includes(e))
     if (invalids.length > 0) {
@@ -21,6 +21,10 @@ cli
 
     if (chosenSources.includes('bitfinex')) {
       ingestBitfinex()
+    }
+
+    if (chosenSources.includes('binance')) {
+      ingestBinance()
     }
   })
 

@@ -2,6 +2,7 @@ import { connect } from 'socketcluster-client'
 import { InfluxDB, FieldType } from 'influx'
 import { WebsocketClient } from 'gdax'
 import BFX from 'bitfinex-api-node'
+import Binance from 'binance-api-node'
 import config from './config'
 
 
@@ -23,7 +24,6 @@ const influx = new InfluxDB({
       tags: [
         'exchange',
         'pair',
-        'side',
       ],
     },
   ],
@@ -31,26 +31,41 @@ const influx = new InfluxDB({
 
 let pointsBatch = []
 
-function saveTickerEvent(timestamp, price, size, side, exchange, pair) {
+function saveTickerEvent(timestamp, price, size, exchange, pair) {
   pointsBatch.push({
     measurement: INFLUX_TICKER_MEASUREMENT,
-    tags: {
-      exchange,
-      pair,
-      side,
-    },
     fields: {
       price,
       size,
     },
+    tags: {
+      exchange,
+      pair,
+    },
     timestamp: new Date(timestamp),
   })
 
-  if (pointsBatch.length >= POINT_BATCH_SIZE_LIMIT) {
+  if (process.env.ECHO_TICKERS) {
+    console.log(JSON.stringify(pointsBatch[pointsBatch.length - 1], null, 2))
+  } else if (pointsBatch.length >= POINT_BATCH_SIZE_LIMIT) {
     console.log('Writing ', pointsBatch.length, ' points -- ', new Date())
     influx.writePoints(pointsBatch)
     pointsBatch = []
   }
+}
+
+export function ingestBinance() {
+  console.log('Beginning ingestion of Binance tickers via websocket API...')
+  const client = Binance()
+  client.ws.trades(config.ingestSources.binance.channels, (trade) => {
+    saveTickerEvent(
+      trade.eventTime,
+      trade.price,
+      trade.quantity,
+      'BINANCE',
+      `${trade.symbol.substring(0, 3)}/${trade.symbol.substring(3)}`,
+    )
+  })
 }
 
 export function ingestBitfinex() {
@@ -74,7 +89,6 @@ export function ingestBitfinex() {
           timestamp,
           price,
           Math.abs(amount),
-          amount < 0 ? 'sell' : 'buy',
           'BITFINEX',
           `${ch.substring(0, 3)}/${ch.substring(3, 6)}`,
         )
@@ -99,7 +113,6 @@ export function ingestGdax() {
         data.time,
         data.price,
         data.size,
-        data.side,
         'GDAX',
         data.product_id.replace('-', '/'),
       )
