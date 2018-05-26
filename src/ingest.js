@@ -1,64 +1,16 @@
-import { connect } from 'socketcluster-client'
-import { InfluxDB, FieldType } from 'influx'
-import { WebsocketClient } from 'gdax'
 import BFX from 'bitfinex-api-node'
 import Binance from 'binance-api-node'
+import { connect } from 'socketcluster-client'
+import { WebsocketClient } from 'gdax'
+import { writeTickerEvent } from './storage'
 import config from './config'
 
-
-const INFLUX_TICKER_MEASUREMENT = 'ticker'
-const POINT_BATCH_SIZE_LIMIT = 50
-
-const influx = new InfluxDB({
-  host: config.influx.host,
-  username: config.influx.username,
-  password: config.influx.password,
-  database: 'tickers',
-  schema: [
-    {
-      measurement: INFLUX_TICKER_MEASUREMENT,
-      fields: {
-        price: FieldType.FLOAT,
-        size: FieldType.FLOAT,
-      },
-      tags: [
-        'exchange',
-        'pair',
-      ],
-    },
-  ],
-})
-
-let pointsBatch = []
-
-function saveTickerEvent(timestamp, price, size, exchange, pair) {
-  pointsBatch.push({
-    measurement: INFLUX_TICKER_MEASUREMENT,
-    fields: {
-      price,
-      size,
-    },
-    tags: {
-      exchange,
-      pair,
-    },
-    timestamp: new Date(timestamp),
-  })
-
-  if (process.env.ECHO_TICKERS) {
-    console.log(JSON.stringify(pointsBatch[pointsBatch.length - 1], null, 2))
-  } else if (pointsBatch.length >= POINT_BATCH_SIZE_LIMIT) {
-    console.log('Writing ', pointsBatch.length, ' points -- ', new Date())
-    influx.writePoints(pointsBatch)
-    pointsBatch = []
-  }
-}
 
 export function ingestBinance() {
   console.log('Beginning ingestion of Binance tickers via websocket API...')
   const client = Binance()
   client.ws.trades(config.ingestSources.binance.channels, (trade) => {
-    saveTickerEvent(
+    writeTickerEvent(
       trade.eventTime,
       trade.price,
       trade.quantity,
@@ -85,7 +37,7 @@ export function ingestBitfinex() {
       ws.subscribeTrades(ch)
       ws.onTrades({ pair: ch }, (trades) => {
         const [, timestamp, amount, price] = trades[0]
-        saveTickerEvent(
+        writeTickerEvent(
           timestamp,
           price,
           Math.abs(amount),
@@ -109,7 +61,7 @@ export function ingestGdax() {
   )
   gdaxClient.on('message', (data) => {
     if (data.type === 'match') {
-      saveTickerEvent(
+      writeTickerEvent(
         data.time,
         data.price,
         data.size,
@@ -144,7 +96,7 @@ export function ingest() {
   console.log('Starting Coinigy Websocket -> InfluxDB ingestion process.')
   const socket = connect(config.coinigy.connectOptions)
   config.coinigy.channels.forEach((ch) => {
-    socket.subscribe(ch, { waitForAuth: true, batch: true }).watch(saveTickerEvent)
+    socket.subscribe(ch, { waitForAuth: true, batch: true }).watch(writeTickerEvent)
   })
 
   console.log('Connecting to Coinigy websocket...')
@@ -162,17 +114,5 @@ export function ingest() {
         console.error('Token not received after auth event!')
       }
     })
-  })
-}
-
-export function aggregate() {
-  console.log('Starting aggregation caching into redis...')
-  const ch = config.coinigy.channels[0]
-  const [exc, currA, currB] = ch.slice(6).split('--')
-  const qStr = `SELECT LAST(price) FROM price_ticks WHERE exchange = '${exc}' AND pair = '${currA}/${currB}'`
-  influx.query(qStr).then((results) => {
-    // results.groupRows.map(ele => ele.rows).forEach(row => console.log(row))
-    console.log('GOT RESULTS!')
-    console.log(results.groupRows)
   })
 }

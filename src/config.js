@@ -280,4 +280,8 @@ export default {
     username: process.env.INFLUX_USERNAME,
     password: process.env.INFLUX_PASSWORD,
   },
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+  },
 }

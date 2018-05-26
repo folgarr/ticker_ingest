@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import cli from 'commander'
 import config from './config'
-import { ingestBinance, ingestGdax, ingestBitfinex, aggregate } from './ingest'
+import { ingestBinance, ingestGdax, ingestBitfinex } from './ingest'
+import aggregate from './aggregate'
 
 const sources = Object.keys(config.ingestSources)
 
@@ -31,7 +32,9 @@ cli
 cli
   .command('aggregate')
   .description('Aggregate ticker values into time intervals saved to Redis.')
-  .action(() => aggregate())
+  .action(() => {
+    setInterval(aggregate, 60 * 1000)
+  })
 
 cli.on('command:*', () => {
   console.error('Invalid command: %s\nSee --help for a list of available commands.', cli.args.join(' '))
