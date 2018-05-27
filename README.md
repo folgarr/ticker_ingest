@@ -1,5 +1,7 @@
 # Ingest/Aggregate crypto tickers
 
+*Tested for Node v8.11*
+
 ## Installing the CLI
 
 From the project directory:
@@ -10,7 +12,20 @@ npm install -g .
 ticker-cli -h
 ```
 
-*Note that this was tested using Node version 8.11.1*
+## Environment variables
+
+Provide the following as environment variables (or in `config.js`):
+
+* `REDIS_HOST` (e.g. `localhost` or an AWS ElastiCache endpoint)
+* `REDIS_PORT` (e.g. the default redis port `6379`)
+* `INFLUX_HOST`
+* `INFLUX_USERNAME`
+* `INFLUX_PASSWORD`
+
+**OPTIONAL:**
+
+* `ECHO_TICKERS=1` to simply send received data to console instead of InfluxDB
+
 ## Ingest into InfluxDB
 
 Collection is done by subscribing to channels on an exchange websocket API.
@@ -19,8 +34,6 @@ When ticker data (price, exchange, pair, etc) is received from this websocket it
 To begin this process:
 
 ```
-# to only view the incoming websocket data
-ECHO_TICKERS=1 ticker-cli ingest {gdax,bitfinex,binance}
 # to actually save the data to InfluxDB
 ticker-cli ingest {gdax,bitfinex,binance}
 ```
